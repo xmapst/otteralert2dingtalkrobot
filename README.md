@@ -1,2 +1,3 @@
-# otteralter2dingtalkrobot
-otter数据同步异常告警到钉钉机器人
+# otteralert
+
+otter监控并发送告警到钉钉机器人
