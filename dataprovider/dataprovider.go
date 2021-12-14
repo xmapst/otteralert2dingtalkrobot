@@ -52,21 +52,13 @@ func (d *Dataprovider) Trigger(failedCh chan Failed, interval time.Duration) {
 			if failed.First {
 				failedCh <- *failed
 				logrus.Infof("id %s generation time %s", id, time.Unix(failed.StartTime, 0).Format("2006-01-02 15:04:05"))
-				d.lock.RUnlock()
-				d.lock.Lock()
 				d.Faileds[id].First = false
-				d.lock.Unlock()
-				d.lock.RLock()
 				continue
 			}
 			if (time.Now().Unix() - failed.StartTime) > int64(interval/time.Second) {
 				failedCh <- *failed
 				logrus.Infof("id %s generation time %s", id, time.Unix(failed.StartTime, 0).Format("2006-01-02 15:04:05"))
-				d.lock.RUnlock()
-				d.lock.Lock()
 				delete(d.Faileds, id)
-				d.lock.Unlock()
-				d.lock.RLock()
 			}
 		}
 		d.lock.RUnlock()
