@@ -1,6 +1,7 @@
 package dataprovider
 
 import (
+	"fmt"
 	"github.com/sirupsen/logrus"
 	"sync"
 	"time"
@@ -46,22 +47,36 @@ func (d *Dataprovider) Del(id string) {
 }
 
 func (d *Dataprovider) Trigger(failedCh chan Failed, interval time.Duration) {
-	for {
-		d.lock.RLock()
-		for id, failed := range d.Faileds {
-			if failed.First {
+	go func() {
+		for {
+			for id, failed := range d.Faileds {
+				// 第一次触发告警
+				if !failed.First {
+					continue
+				}
+				logrus.Info("first trigger")
 				failedCh <- *failed
-				logrus.Infof("id %s generation time %s", id, time.Unix(failed.StartTime, 0).Format("2006-01-02 15:04:05"))
+				d.lock.RLock()
 				d.Faileds[id].First = false
+				d.lock.RUnlock()
+			}
+			time.Sleep(150 * time.Millisecond)
+		}
+	}()
+	for range time.Tick(interval) {
+		// 后续定期告警
+		for _, failed := range d.Faileds {
+			if failed.First {
 				continue
 			}
-			if (time.Now().Unix() - failed.StartTime) > int64(interval/time.Second) {
-				failedCh <- *failed
-				logrus.Infof("id %s generation time %s", id, time.Unix(failed.StartTime, 0).Format("2006-01-02 15:04:05"))
-				delete(d.Faileds, id)
+			logrus.Info("periodic trigger")
+			count := (time.Now().Unix() - failed.StartTime) / 60
+			failedCh <- Failed{
+				Id:        failed.Id,
+				StartTime: failed.StartTime,
+				First:     failed.First,
+				Message:   failed.Message + fmt.Sprintf("持续时间%d/分钟", count),
 			}
 		}
-		d.lock.RUnlock()
-		time.Sleep(150 * time.Millisecond)
 	}
 }
